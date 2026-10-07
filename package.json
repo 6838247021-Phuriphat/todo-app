@@ -4,8 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node server.js",
-    "test": "vitest run"
+   "dev": "node server.js",
+   "start": "node server.js",
+   "test": "vitest run"
   },
   "dependencies": {
     "@libsql/client": "^0.15.9",
