@@ -1,0 +1,36 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: #f3f4f6;
+  color: #111827;
+}
+.container { width: min(680px, 92%); margin: 50px auto; }
+h1 { text-align: center; }
+.card {
+  background: white; padding: 24px; border-radius: 14px;
+  box-shadow: 0 8px 25px rgba(0,0,0,.08); margin-top: 20px;
+}
+.hidden { display: none; }
+.tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+button {
+  border: 0; border-radius: 8px; padding: 10px 14px; cursor: pointer;
+  background: #e5e7eb;
+}
+button.active, form button { background: #2563eb; color: white; }
+form { display: grid; gap: 10px; }
+input {
+  width: 100%; padding: 11px; border: 1px solid #d1d5db;
+  border-radius: 8px; font-size: 16px;
+}
+.topbar { display: flex; justify-content: space-between; align-items: center; }
+.task-form { grid-template-columns: 1fr auto; margin-top: 20px; }
+ul { list-style: none; padding: 0; }
+li {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 0; border-bottom: 1px solid #eee;
+}
+li span { flex: 1; }
+.completed { text-decoration: line-through; color: #6b7280; }
+.delete { background: #fee2e2; color: #991b1b; }
+.message { min-height: 1.3em; color: #b91c1c; }

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My To-Do List</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main class="container">
+    <h1>My To-Do List</h1>
+
+    <section id="auth" class="card">
+      <div class="tabs">
+        <button id="loginTab" class="active">Login</button>
+        <button id="registerTab">Register</button>
+      </div>
+
+      <form id="authForm">
+        <input id="username" placeholder="Username" autocomplete="username" required />
+        <input id="password" type="password" placeholder="Password (8+ characters)" autocomplete="current-password" required />
+        <button type="submit" id="authSubmit">Login</button>
+      </form>
+      <p id="authMessage" class="message"></p>
+    </section>
+
+    <section id="todo" class="card hidden">
+      <div class="topbar">
+        <span>Logged in as <strong id="currentUser"></strong></span>
+        <button id="logout">Logout</button>
+      </div>
+
+      <form id="taskForm" class="task-form">
+        <input id="taskTitle" maxlength="200" placeholder="Add a task..." required />
+        <button type="submit">Add</button>
+      </form>
+
+      <p id="taskMessage" class="message"></p>
+      <ul id="taskList"></ul>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>
