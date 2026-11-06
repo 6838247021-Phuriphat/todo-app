@@ -1,12 +1,21 @@
+
 import { createClient } from "@libsql/client";
 
 const url = process.env.TURSO_DATABASE_URL;
 const authToken = process.env.TURSO_AUTH_TOKEN;
 
-if (!url) throw new Error("Missing TURSO_DATABASE_URL");
-if (!authToken) throw new Error("Missing TURSO_AUTH_TOKEN");
+if (!url) {
+  throw new Error("Missing TURSO_DATABASE_URL");
+}
 
-export const db = createClient({ url, authToken });
+if (!authToken) {
+  throw new Error("Missing TURSO_AUTH_TOKEN");
+}
+
+export const db = createClient({
+  url,
+  authToken
+});
 
 export async function initDb() {
   await db.batch([
