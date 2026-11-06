@@ -1,3 +1,4 @@
+
 import express from "express";
 import cookieParser from "cookie-parser";
 import bcrypt from "bcryptjs";
@@ -8,18 +9,15 @@ import { db, initDb } from "./db.js";
 
 export const app = express();
 
-// Middleware
 app.use(express.json({ limit: "20kb" }));
 app.use(cookieParser());
 
-// Session secret
 const SESSION_SECRET = process.env.SESSION_SECRET;
 
 if (!SESSION_SECRET) {
   throw new Error("Missing SESSION_SECRET");
 }
 
-// Create signature
 function sign(value) {
   return crypto
     .createHmac("sha256", SESSION_SECRET)
@@ -27,20 +25,16 @@ function sign(value) {
     .digest("hex");
 }
 
-// Create session
 function makeSession(userId) {
   const payload = `${userId}.${Date.now()}`;
   return `${payload}.${sign(payload)}`;
 }
 
-// Get user from session
 function getUserId(req) {
   const raw = req.cookies?.session;
-
   if (!raw) return null;
 
   const parts = raw.split(".");
-
   if (parts.length !== 3) return null;
 
   const [userId, timestamp, signature] = parts;
@@ -56,23 +50,18 @@ function getUserId(req) {
 
   const expected = sign(`${userId}.${timestamp}`);
 
-  if (signature.length !== expected.length) {
-    return null;
-  }
+  if (signature.length !== expected.length) return null;
 
-  if (
-    !crypto.timingSafeEqual(
-      Buffer.from(signature),
-      Buffer.from(expected)
-    )
-  ) {
+  if (!crypto.timingSafeEqual(
+    Buffer.from(signature),
+    Buffer.from(expected)
+  )) {
     return null;
   }
 
   return Number(userId);
 }
 
-// Authentication middleware
 function requireAuth(req, res, next) {
   const userId = getUserId(req);
 
@@ -86,34 +75,45 @@ function requireAuth(req, res, next) {
   next();
 }
 
-// Set login cookie
 function setSession(res, userId) {
   res.cookie("session", makeSession(userId), {
     httpOnly: true,
     sameSite: "lax",
-    secure:
-      process.env.NODE_ENV === "production" ||
-      Boolean(process.env.VERCEL),
+    secure: process.env.NODE_ENV === "production"
+      || Boolean(process.env.VERCEL),
     maxAge: 7 * 24 * 60 * 60 * 1000,
     path: "/"
   });
 }
 
-// ==============================
+// ==================================
+// HOMEPAGE
+// ==================================
+
+app.get("/", (_req, res) => {
+  if (process.env.VERCEL) {
+    return res.redirect(302, "/index.html");
+  }
+
+  const currentDir = path.dirname(fileURLToPath(import.meta.url));
+
+  return res.sendFile(
+    path.join(currentDir, "../public/index.html")
+  );
+});
+
+// ==================================
 // HEALTH CHECK
-// ==============================
+// ==================================
 
 app.get("/api/health", async (_req, res) => {
   await initDb();
-
-  res.json({
-    ok: true
-  });
+  res.json({ ok: true });
 });
 
-// ==============================
+// ==================================
 // REGISTER
-// ==============================
+// ==================================
 
 app.post("/api/register", async (req, res) => {
   const username = String(req.body?.username ?? "").trim();
@@ -133,25 +133,17 @@ app.post("/api/register", async (req, res) => {
 
   await initDb();
 
-  const passwordHash = await bcrypt.hash(password, 12);
+  const hash = await bcrypt.hash(password, 12);
 
   try {
     const result = await db.execute({
-      sql: `
-        INSERT INTO users (username, password_hash)
-        VALUES (?, ?)
-      `,
-      args: [username, passwordHash]
+      sql: "INSERT INTO users (username, password_hash) VALUES (?, ?)",
+      args: [username, hash]
     });
 
-    const userId = Number(result.lastInsertRowid);
+    setSession(res, Number(result.lastInsertRowid));
 
-    setSession(res, userId);
-
-    return res.status(201).json({
-      username
-    });
-
+    res.status(201).json({ username });
   } catch (error) {
     if (String(error.message).includes("UNIQUE")) {
       return res.status(409).json({
@@ -163,9 +155,9 @@ app.post("/api/register", async (req, res) => {
   }
 });
 
-// ==============================
+// ==================================
 // LOGIN
-// ==============================
+// ==================================
 
 app.post("/api/login", async (req, res) => {
   const username = String(req.body?.username ?? "").trim();
@@ -174,20 +166,13 @@ app.post("/api/login", async (req, res) => {
   await initDb();
 
   const result = await db.execute({
-    sql: `
-      SELECT id, username, password_hash
-      FROM users
-      WHERE username = ?
-    `,
+    sql: "SELECT id, username, password_hash FROM users WHERE username = ?",
     args: [username]
   });
 
   const user = result.rows[0];
 
-  if (
-    !user ||
-    !(await bcrypt.compare(password, user.password_hash))
-  ) {
+  if (!user || !(await bcrypt.compare(password, user.password_hash))) {
     return res.status(401).json({
       error: "Invalid username or password."
     });
@@ -195,43 +180,34 @@ app.post("/api/login", async (req, res) => {
 
   setSession(res, Number(user.id));
 
-  res.json({
-    username: user.username
-  });
+  res.json({ username: user.username });
 });
 
-// ==============================
+// ==================================
 // LOGOUT
-// ==============================
+// ==================================
 
 app.post("/api/logout", (_req, res) => {
   res.clearCookie("session", {
     httpOnly: true,
     sameSite: "lax",
-    secure:
-      process.env.NODE_ENV === "production" ||
-      Boolean(process.env.VERCEL),
+    secure: process.env.NODE_ENV === "production"
+      || Boolean(process.env.VERCEL),
     path: "/"
   });
 
-  res.json({
-    ok: true
-  });
+  res.json({ ok: true });
 });
 
-// ==============================
+// ==================================
 // CURRENT USER
-// ==============================
+// ==================================
 
 app.get("/api/me", requireAuth, async (req, res) => {
   await initDb();
 
   const result = await db.execute({
-    sql: `
-      SELECT username
-      FROM users
-      WHERE id = ?
-    `,
+    sql: "SELECT username FROM users WHERE id = ?",
     args: [req.userId]
   });
 
@@ -241,40 +217,34 @@ app.get("/api/me", requireAuth, async (req, res) => {
     });
   }
 
-  res.json({
-    username: result.rows[0].username
-  });
+  res.json({ username: result.rows[0].username });
 });
 
-// ==============================
+// ==================================
 // GET TASKS
-// ==============================
+// ==================================
 
 app.get("/api/tasks", requireAuth, async (req, res) => {
   await initDb();
 
   const result = await db.execute({
-    sql: `
-      SELECT id, title, completed
-      FROM tasks
-      WHERE user_id = ?
-      ORDER BY id DESC
-    `,
+    sql: `SELECT id, title, completed
+          FROM tasks
+          WHERE user_id = ?
+          ORDER BY id DESC`,
     args: [req.userId]
   });
 
-  res.json(
-    result.rows.map((task) => ({
-      id: Number(task.id),
-      title: task.title,
-      completed: Boolean(task.completed)
-    }))
-  );
+  res.json(result.rows.map(task => ({
+    id: Number(task.id),
+    title: task.title,
+    completed: Boolean(task.completed)
+  })));
 });
 
-// ==============================
+// ==================================
 // ADD TASK
-// ==============================
+// ==================================
 
 app.post("/api/tasks", requireAuth, async (req, res) => {
   const title = String(req.body?.title ?? "").trim();
@@ -288,10 +258,7 @@ app.post("/api/tasks", requireAuth, async (req, res) => {
   await initDb();
 
   const result = await db.execute({
-    sql: `
-      INSERT INTO tasks (user_id, title)
-      VALUES (?, ?)
-    `,
+    sql: "INSERT INTO tasks (user_id, title) VALUES (?, ?)",
     args: [req.userId, title]
   });
 
@@ -302,9 +269,9 @@ app.post("/api/tasks", requireAuth, async (req, res) => {
   });
 });
 
-// ==============================
+// ==================================
 // UPDATE TASK
-// ==============================
+// ==================================
 
 app.patch("/api/tasks/:id", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
@@ -320,16 +287,10 @@ app.patch("/api/tasks/:id", requireAuth, async (req, res) => {
   await initDb();
 
   const result = await db.execute({
-    sql: `
-      UPDATE tasks
-      SET completed = ?
-      WHERE id = ? AND user_id = ?
-    `,
-    args: [
-      completed ? 1 : 0,
-      id,
-      req.userId
-    ]
+    sql: `UPDATE tasks
+          SET completed = ?
+          WHERE id = ? AND user_id = ?`,
+    args: [completed ? 1 : 0, id, req.userId]
   });
 
   if (result.rowsAffected === 0) {
@@ -338,15 +299,12 @@ app.patch("/api/tasks/:id", requireAuth, async (req, res) => {
     });
   }
 
-  res.json({
-    id,
-    completed
-  });
+  res.json({ id, completed });
 });
 
-// ==============================
+// ==================================
 // DELETE TASK
-// ==============================
+// ==================================
 
 app.delete("/api/tasks/:id", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
@@ -360,10 +318,7 @@ app.delete("/api/tasks/:id", requireAuth, async (req, res) => {
   await initDb();
 
   const result = await db.execute({
-    sql: `
-      DELETE FROM tasks
-      WHERE id = ? AND user_id = ?
-    `,
+    sql: "DELETE FROM tasks WHERE id = ? AND user_id = ?",
     args: [id, req.userId]
   });
 
@@ -376,34 +331,21 @@ app.delete("/api/tasks/:id", requireAuth, async (req, res) => {
   res.status(204).end();
 });
 
-// ==============================
-// SERVE FRONTEND LOCALLY
-// ==============================
-
-// Vercel serves public files separately.
-// Express serves public files only during local development.
+// ==================================
+// LOCAL STATIC FILES
+// ==================================
 
 if (!process.env.VERCEL) {
-  const currentDir = path.dirname(
-    fileURLToPath(import.meta.url)
-  );
+  const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
-  app.use(
-    express.static(
-      path.join(currentDir, "../public")
-    )
-  );
-
-  app.get("/", (_req, res) => {
-    res.sendFile(
-      path.join(currentDir, "../public/index.html")
-    );
-  });
+  app.use(express.static(
+    path.join(currentDir, "../public")
+  ));
 }
 
-// ==============================
+// ==================================
 // ERROR HANDLER
-// ==============================
+// ==================================
 
 app.use((err, _req, res, _next) => {
   console.error("Server Error:", err);
